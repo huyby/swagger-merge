@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+"use strict";
+
+const args = process.argv.slice(2),
+    fs = require('fs');
+
+
+class SwaggerMerger {
+    getReference(ref, swaggerJson){
+        const elements = ref.split("/").slice(1);
+        let foundRef = swaggerJson;
+
+        elements.forEach((item) => {
+            foundRef = foundRef[item];
+        });
+
+        return {
+            properties: Object.assign({},foundRef.properties),
+            refName: elements[elements.length -1]
+        };
+    }
+
+    mergeDefinition(allOf, swaggerJson){
+        const models = [];
+
+        let referencedDefinitions = allOf.map((item) => {
+
+            if(item.properties){
+                return Object.assign({},item.properties);
+            }
+            if(item['$ref']){
+                const ref = this.getReference(item['$ref'], swaggerJson);
+                models.push(ref.refName);
+                return ref.properties;
+            }
+
+            return item;
+        });
+
+        let mergedDefinition = {};
+
+        referencedDefinitions.forEach((item) => {
+            Object.assign(mergedDefinition, item);
+        });
+
+        return {
+                type: "object",
+                description: `This model inherits fields from: ${models.join(', ')}`,
+                properties: mergedDefinition
+        };
+    }
+
+    mergeAllOfdefinitions(swaggerJson){
+        const newSwaggerJson = Object.assign({},swaggerJson);
+
+        if(swaggerJson.definitions){
+            for(let key in swaggerJson.definitions){
+                let def = swaggerJson.definitions[key];
+
+                if (def.allOf) newSwaggerJson.definitions[key] = this.mergeDefinition(def.allOf,swaggerJson);
+            }
+        }
+
+        return swaggerJson;
+    }
+
+    loadJson(swaggerFile){
+        return JSON.parse(fs.readFileSync(`./${swaggerFile}`, 'utf8'));
+    }
+
+    writeFile(swaggerFile, mergedSwagger){
+        const filename = swaggerFile.split(".")[0];
+        const timestamp = Math.floor(Date.now() / 1000);
+        const newFilename = `${filename}-${timestamp}.json`;
+        fs.writeFileSync(newFilename, JSON.stringify(mergedSwagger));
+    }
+
+    constructor(swaggerFile) {
+        if(swaggerFile){
+            const json = this.loadJson(swaggerFile);
+            const mergedSwagger = this.mergeAllOfdefinitions(json);
+            this.writeFile(swaggerFile, mergedSwagger);
+        }
+    }
+}
+
+new SwaggerMerger(args[0]);
+
+
+process.exit(1);
