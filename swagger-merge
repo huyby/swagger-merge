@@ -68,23 +68,24 @@ class SwaggerMerger {
         return JSON.parse(fs.readFileSync(`./${swaggerFile}`, 'utf8'));
     }
 
-    writeFile(swaggerFile, mergedSwagger){
-        const filename = swaggerFile.split(".")[0];
-        const timestamp = Math.floor(Date.now() / 1000);
-        const newFilename = `${filename}-${timestamp}.json`;
-        fs.writeFileSync(newFilename, JSON.stringify(mergedSwagger));
+    writeFile(swaggerFile, mergedSwagger, swaggerDestFile){
+        if (!swaggerDestFile) {
+            let filename = swaggerFile.split(".")[0];
+            swaggerDestFile = `${filename}-merged.json`;
+        }
+        fs.writeFileSync(swaggerDestFile, JSON.stringify(mergedSwagger));
     }
 
-    constructor(swaggerFile) {
+    constructor(swaggerFile, swaggerDestFile) {
         if(swaggerFile){
             const json = this.loadJson(swaggerFile);
             const mergedSwagger = this.mergeAllOfdefinitions(json);
-            this.writeFile(swaggerFile, mergedSwagger);
+            this.writeFile(swaggerFile, mergedSwagger, swaggerDestFile);
         }
     }
 }
 
-new SwaggerMerger(args[0]);
+new SwaggerMerger(args[0], args[1]);
 
 
 process.exit(0);
